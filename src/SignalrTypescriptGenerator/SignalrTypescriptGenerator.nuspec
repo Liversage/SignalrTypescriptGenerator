@@ -1,20 +1,30 @@
 <?xml version="1.0"?>
 <package >
-	<metadata>
-		<id>SignalrTypescriptGenerator</id>
-		<version>$version$</version>
-		<title>Signalr Typescript Hub Generator</title>
-		<authors>C.Small</authors>
-		<owners>>C.Small</owners>
-		<projectUrl>https://github.com/yetanotherchris/SignalrTypescriptGenerator</projectUrl>
-		<iconUrl>https://raw.githubusercontent.com/yetanotherchris/SignalrTypescriptGenerator/master/icon.png</iconUrl>
-		<requireLicenseAcceptance>false</requireLicenseAcceptance>
-		<description>Command line tool for generating Typescript hub definitions for a Signalr assembly.</description>
-		<releaseNotes>Breaking change: now use -a for the assembly, and -o for the file to write. See the Github project page for examples.</releaseNotes>
-		<copyright>C.Small Copyright 2016</copyright>
-		<tags>typescript signalr hubs</tags>
-	</metadata>
-	<files>
-		<file src="bin\release\*.*" target="tools" />
-	</files>
+  <metadata>
+    <id>Radiometer.SignalrTypescriptGenerator</id>
+    <version>$version$</version>
+    <title>Signalr Typescript Hub Generator</title>
+    <authors>C.Small, Martin Liversage</authors>
+    <owners>>C.Small</owners>
+    <projectUrl>https://github.com/Liversage/SignalrTypescriptGenerator/tree/radiometer</projectUrl>
+    <iconUrl>https://github.com/Liversage/SignalrTypescriptGenerator/tree/radiometer/icon.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Command line tool for generating Typescript hub definitions for a Signalr assembly.</description>
+    <releaseNotes>Fork of https://github.com/yetanotherchris/SignalrTypescriptGenerator.</releaseNotes>
+    <copyright>C.Small Copyright 2016</copyright>
+    <tags>typescript signalr hubs</tags>
+  </metadata>
+  <files>
+    <file src="bin\release\CommandLine.dll" target="tools"/>
+    <file src="bin\release\FSharp.Core.dll" target="tools"/>
+    <file src="bin\release\Microsoft.AspNet.SignalR.Core.dll" target="tools"/>
+    <file src="bin\release\Microsoft.Owin.dll" target="tools"/>
+    <file src="bin\release\Microsoft.Owin.Security.dll" target="tools"/>
+    <file src="bin\release\Newtonsoft.Json.dll" target="tools"/>
+    <file src="bin\release\Owin.dll" target="tools"/>
+    <file src="bin\release\RazorEngine.dll" target="tools"/>
+    <file src="bin\release\SignalrTypescriptGenerator.exe" target="tools"/>
+    <file src="bin\release\SignalrTypescriptGenerator.exe.config" target="tools"/>
+    <file src="bin\release\System.Web.Razor.dll" target="tools"/>
+  </files>
 </package>

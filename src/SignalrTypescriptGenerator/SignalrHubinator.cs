@@ -8,184 +8,162 @@ using Microsoft.AspNet.SignalR.Hubs;
 using SignalrTypescriptGenerator.Models;
 using TypeInfo = SignalrTypescriptGenerator.Models.TypeInfo;
 
-namespace SignalrTypescriptGenerator
-{
-	internal class SignalrHubinator
-	{
-		private static string _assemblyRootFolder;
-		private readonly TypeHelper _typeHelper;
-		private DefaultHubManager _hubmanager;
+namespace SignalrTypescriptGenerator {
 
-		public SignalrHubinator(string assemblyPath)
-		{
-			_assemblyRootFolder = Path.GetDirectoryName(assemblyPath);
-			LoadAssemblyIntoAppDomain(assemblyPath);
+  class SignalrHubinator {
 
-			_typeHelper = new TypeHelper();
+    static string assemblyRootFolder;
 
-			var defaultDependencyResolver = new DefaultDependencyResolver();
-			_hubmanager = new DefaultHubManager(defaultDependencyResolver);
-		}
+    readonly DefaultHubManager _hubmanager;
 
-		public TypeHelper TypeHelper
-		{
-			get { return _typeHelper; }
-		}
+    public SignalrHubinator(string assemblyPath) {
+      assemblyRootFolder = Path.GetDirectoryName(assemblyPath);
+      LoadAssemblyIntoAppDomain(assemblyPath);
 
-		private static Assembly LoadFromSameFolder(object sender, ResolveEventArgs args)
-		{
-			string assemblyPath = Path.Combine(_assemblyRootFolder, new AssemblyName(args.Name).Name + ".dll");
-			if (File.Exists(assemblyPath) == false)
-				return null;
+      TypeHelper = new TypeHelper();
 
-			Assembly assembly = Assembly.LoadFrom(assemblyPath);
-			return assembly;
-		}
+      var defaultDependencyResolver = new DefaultDependencyResolver();
+      _hubmanager = new DefaultHubManager(defaultDependencyResolver);
+    }
 
-		private void LoadAssemblyIntoAppDomain(string assemblyPath)
-		{
-			AppDomain currentDomain = AppDomain.CurrentDomain;
-			currentDomain.AssemblyResolve += new ResolveEventHandler(LoadFromSameFolder);
-			Assembly.LoadFile(assemblyPath);
-		}
+    public TypeHelper TypeHelper { get; }
 
-		public List<TypeInfo> GetHubs()
-		{
-			var items = new List<TypeInfo>();
-			foreach (var hub in _hubmanager.GetHubs())
-			{
-				string name = hub.NameSpecified ? hub.Name : _typeHelper.FirstCharLowered(hub.Name);
-				string typename = hub.HubType.FullName;
+    static Assembly LoadFromSameFolder(object sender, ResolveEventArgs args) {
+      var assemblyPath = Path.Combine(assemblyRootFolder, new AssemblyName(args.Name).Name + ".dll");
+      if (File.Exists(assemblyPath) == false)
+        return null;
 
-				items.Add(new TypeInfo() { Name = name, TypescriptType = typename });
-			}
+      var assembly = Assembly.LoadFrom(assemblyPath);
+      return assembly;
+    }
 
-			return items;
-		}
+    void LoadAssemblyIntoAppDomain(string assemblyPath) {
+      var currentDomain = AppDomain.CurrentDomain;
+      currentDomain.AssemblyResolve += LoadFromSameFolder;
+      Assembly.LoadFile(assemblyPath);
+    }
 
-		public List<ServiceInfo> GetServiceContracts()
-		{
-			var list = new List<ServiceInfo>();
-			var serviceInfo = new ServiceInfo();
+    public List<TypeInfo> GetHubs() {
 
-			foreach (var hub in _hubmanager.GetHubs())
-			{
-				Type hubType = hub.HubType;
+      var typeInfos = from hub in _hubmanager.GetHubs()
+                      let name = hub.NameSpecified ? hub.Name : hub.Name.ToCamelCase()
+                      let typename = hub.HubType.FullName
+                      select new TypeInfo { Name = name, TypescriptType = typename };
+      return typeInfos.ToList();
+    }
 
-				string moduleName = hubType.Namespace;
-				string interfaceName = hubType.Name;
-				serviceInfo.ModuleName = moduleName;
-				serviceInfo.InterfaceName = interfaceName;
+    public List<ServiceInfo> GetServiceContracts() {
+      var list = new List<ServiceInfo>();
+      var serviceInfo = new ServiceInfo();
 
-				Type clientType = TypeHelper.ClientType(hubType);
-				string clientTypeName = clientType != null ? clientType.FullName : "any";	
-				serviceInfo.ClientType = clientTypeName;
+      foreach (var hub in _hubmanager.GetHubs()) {
+        var hubType = hub.HubType;
 
-				// Server type and functions
-				string serverType = hubType.Name + "Server";
-				string serverFullNamespace = hubType.FullName + "Server";
-				serviceInfo.ServerType = serverType;
-				serviceInfo.ServerTypeFullNamespace = serverFullNamespace;
-				foreach (var method in _hubmanager.GetHubMethods(hub.Name))
-				{
-					var ps = method.Parameters.Select(x => x.Name + " : " + TypeHelper.GetTypeContractName(x.ParameterType));
-					var functionDetails = new FunctionDetails()
-					{
-						Name = _typeHelper.FirstCharLowered(method.Name),
-						Arguments = "(" + string.Join(", ", ps) + ")",
-						ReturnType = "JQueryPromise<" +TypeHelper.GetTypeContractName(method.ReturnType)+ ">"
-					};
+        var moduleName = hubType.Namespace;
+        var interfaceName = hubType.Name;
+        serviceInfo.ModuleName = moduleName;
+        serviceInfo.InterfaceName = interfaceName;
 
-					serviceInfo.ServerFunctions.Add(functionDetails);
-				}
+        var clientType = TypeHelper.ClientType(hubType);
+        var clientTypeName = clientType != null ? clientType.FullName : "any";
+        serviceInfo.ClientType = clientTypeName;
 
-				list.Add(serviceInfo);
-			}
+        // Server type and functions
+        var serverType = hubType.Name + "Server";
+        var serverFullNamespace = hubType.FullName + "Server";
+        serviceInfo.ServerType = serverType;
+        serviceInfo.ServerTypeFullNamespace = serverFullNamespace;
+        foreach (var method in _hubmanager.GetHubMethods(hub.Name)) {
+          var ps = method.Parameters.Select(x => x.Name + ": " + TypeHelper.GetTypeContractName(x.ParameterType));
+          var functionDetails = new FunctionDetails {
+            Name = method.Name.ToCamelCase(),
+            Arguments = "(" + string.Join(", ", ps) + ")",
+            ReturnType = "JQueryPromise<" + TypeHelper.GetTypeContractName(method.ReturnType) + ">"
+          };
 
-			return list;
-		}
+          serviceInfo.ServerFunctions.Add(functionDetails);
+        }
 
-		public List<ClientInfo> GetClients()
-		{
-			var list = new List<ClientInfo>();
+        list.Add(serviceInfo);
+      }
 
-			foreach (var hub in _hubmanager.GetHubs())
-			{
-				Type hubType = hub.HubType;
-				Type clientType = TypeHelper.ClientType(hubType);
+      return list;
+    }
 
-				if (clientType != null)
-				{
-					string moduleName = clientType.Namespace;
-					string interfaceName = clientType.Name;
-					var clientInfo = new ClientInfo();
+    public List<ClientInfo> GetClients() {
+      var list = new List<ClientInfo>();
 
-					clientInfo.ModuleName = moduleName;
-					clientInfo.InterfaceName = interfaceName;
-					clientInfo.FunctionDetails = TypeHelper.GetClientFunctions(hubType);
-					list.Add(clientInfo);
-				}
-			}
+      foreach (var hub in _hubmanager.GetHubs()) {
+        var hubType = hub.HubType;
+        var clientType = TypeHelper.ClientType(hubType);
 
-			return list;
-		}
+        if (clientType != null) {
+          var moduleName = clientType.Namespace;
+          var interfaceName = clientType.Name;
+          var clientInfo = new ClientInfo();
 
-		public List<DataContractInfo> GetDataContracts()
-		{
-			var list = new List<DataContractInfo>();
+          clientInfo.ModuleName = moduleName;
+          clientInfo.InterfaceName = interfaceName;
+          clientInfo.FunctionDetails = TypeHelper.GetClientFunctions(hubType);
+          list.Add(clientInfo);
+        }
+      }
 
-			while (_typeHelper.InterfaceTypes.Count != 0)
-			{
-				var type = _typeHelper.InterfaceTypes.Pop();
-				var dataContractInfo = new DataContractInfo();
+      return list;
+    }
 
-				string moduleName = type.Namespace;
-				string interfaceName = _typeHelper.GenericSpecificName(type, false);
+    public List<DataContractInfo> GetDataContracts() {
+      var list = new List<DataContractInfo>();
 
-				dataContractInfo.ModuleName = moduleName;
-				dataContractInfo.InterfaceName = interfaceName;
+      while (TypeHelper.InterfaceTypes.Count != 0) {
+        var type = TypeHelper.InterfaceTypes.Pop();
+        var dataContractInfo = new DataContractInfo();
 
-				foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
-				{
-					string propertyName = property.Name;
-					string typeName = _typeHelper.GetTypeContractName(property.PropertyType);
+        var moduleName = type.Namespace;
+        var interfaceName = TypeHelper.GenericSpecificName(type, false);
 
-					dataContractInfo.Properties.Add(new TypeInfo() { Name = propertyName, TypescriptType = typeName });
-				}
+        dataContractInfo.ModuleName = moduleName;
+        dataContractInfo.InterfaceName = interfaceName;
 
-				list.Add(dataContractInfo);
-			}
+        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)) {
+          var propertyName = property.Name;
+          var typeName = TypeHelper.GetTypeContractName(property.PropertyType);
 
-			return list;
-		}
+          dataContractInfo.Properties.Add(new TypeInfo { Name = propertyName, TypescriptType = typeName });
+        }
 
-		public List<EnumInfo> GetEnums()
-		{
-			var list = new List<EnumInfo>();
+        list.Add(dataContractInfo);
+      }
 
-			while (_typeHelper.EnumTypes.Count != 0)
-			{
-				var type = _typeHelper.EnumTypes.Pop();
-				var enuminfo = new EnumInfo();
+      return list;
+    }
 
-				string moduleName = type.Namespace;
-				string interfaceName = _typeHelper.GenericSpecificName(type, false);
+    public List<EnumInfo> GetEnums() {
+      var list = new List<EnumInfo>();
 
-				enuminfo.ModuleName = moduleName;
-				enuminfo.InterfaceName = interfaceName;
+      while (TypeHelper.EnumTypes.Count != 0) {
+        var type = TypeHelper.EnumTypes.Pop();
+        var enuminfo = new EnumInfo();
 
-				foreach (string name in Enum.GetNames(type))
-				{
-					string propertyName = name;
-					string typeName = string.Format("{0:D}", Enum.Parse(type, name));
+        var moduleName = type.Namespace;
+        var interfaceName = TypeHelper.GenericSpecificName(type, false);
 
-					enuminfo.Properties.Add(new TypeInfo() { Name = propertyName, TypescriptType = typeName });
-				}
+        enuminfo.ModuleName = moduleName;
+        enuminfo.InterfaceName = interfaceName;
 
-				list.Add(enuminfo);
-			}
+        foreach (var name in Enum.GetNames(type)) {
+          var propertyName = name;
+          string typeName = $"{Enum.Parse(type, name):D}";
 
-			return list;
-		}
-	}
+          enuminfo.Properties.Add(new TypeInfo { Name = propertyName, TypescriptType = typeName });
+        }
+
+        list.Add(enuminfo);
+      }
+
+      return list;
+    }
+
+  }
+
 }

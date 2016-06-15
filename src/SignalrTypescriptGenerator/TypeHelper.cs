@@ -6,134 +6,103 @@ using System.Threading.Tasks;
 using Microsoft.AspNet.SignalR;
 using SignalrTypescriptGenerator.Models;
 
-namespace SignalrTypescriptGenerator
-{
-	internal class TypeHelper
-	{
-		private readonly HashSet<Type> _doneTypes;
-		public readonly Stack<Type> InterfaceTypes;
-		public readonly Stack<Type> EnumTypes;
+namespace SignalrTypescriptGenerator {
 
-		public TypeHelper()
-		{
-			_doneTypes = new HashSet<Type>();
-			InterfaceTypes = new Stack<Type>();
-			EnumTypes = new Stack<Type>();
-		}
+  class TypeHelper {
 
-		public List<FunctionDetails> GetClientFunctions(Type hubType)
-		{
-			var list = new List<FunctionDetails>();
+    readonly HashSet<Type> _doneTypes;
 
-			Type clientType = ClientType(hubType);
-			if (clientType != null)
-			{
-				foreach (var method in clientType.GetMethods())
-				{
-					var functionDetails = new FunctionDetails();
-					IEnumerable<string> ps = method.GetParameters().Select(x => x.Name + " : " + GetTypeContractName(x.ParameterType));
-					string functionName = FirstCharLowered(method.Name);
-					string functionArgs = "(" + string.Join(", ", ps) + ")";
+    public readonly Stack<Type> EnumTypes;
 
-					functionDetails.Name = functionName;
-					functionDetails.Arguments = functionArgs;
+    public readonly Stack<Type> InterfaceTypes;
 
-					list.Add(functionDetails);
-				}
-			}
+    public TypeHelper() {
+      _doneTypes = new HashSet<Type>();
+      InterfaceTypes = new Stack<Type>();
+      EnumTypes = new Stack<Type>();
+    }
 
-			return list;
-		}
+    public List<FunctionDetails> GetClientFunctions(Type hubType) {
+      var list = new List<FunctionDetails>();
 
-		public string FirstCharLowered(string s)
-		{
-			return Regex.Replace(s, "^.", x => x.Value.ToLowerInvariant());
-		}
+      var clientType = ClientType(hubType);
+      if (clientType == null)
+        return list;
+      foreach (var method in clientType.GetMethods()) {
+        var functionDetails = new FunctionDetails();
+        var ps = method.GetParameters().Select(x => x.Name + ": " + GetTypeContractName(x.ParameterType));
+        var functionName = method.Name.ToCamelCase();
+        var functionArgs = "(" + string.Join(", ", ps) + ")";
 
-		public Type ClientType(Type hubType)
-		{
-			while (hubType != null && hubType != typeof(Hub))
-			{
-				if (hubType.IsGenericType && hubType.GetGenericTypeDefinition() == typeof(Hub<>))
-				{
-					return hubType.GetGenericArguments().Single();
-				}
-				hubType = hubType.BaseType;
-			}
-			return null;
-		}
+        functionDetails.Name = functionName;
+        functionDetails.Arguments = functionArgs;
 
-		public string GetTypeContractName(Type type)
-		{
-			if (type == typeof(Task))
-			{
-				return "void";
-			}
+        list.Add(functionDetails);
+      }
 
-			if (type.IsArray)
-			{
-				return GetTypeContractName(type.GetElementType()) + "[]";
-			}
+      return list;
+    }
 
-			if (type.IsGenericType)
-			{
-				if (typeof(Task<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
-				{
-					return GetTypeContractName(type.GetGenericArguments()[0]);
-				}
+    public Type ClientType(Type hubType) {
+      while (hubType != null && hubType != typeof(Hub)) {
+        if (hubType.IsGenericType && hubType.GetGenericTypeDefinition() == typeof(Hub<>))
+          return hubType.GetGenericArguments().Single();
+        hubType = hubType.BaseType;
+      }
+      return null;
+    }
 
-				if (typeof(Nullable<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
-				{
-					return GetTypeContractName(type.GetGenericArguments()[0]);
-				}
+    public string GetTypeContractName(Type type) {
+      if (type == typeof(Task))
+        return "void";
 
-				if (typeof(IEnumerable<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
-				{
-					return GetTypeContractName(type.GetGenericArguments()[0]) + "[]";
-				}
-			}
+      if (type.IsArray)
+        return GetTypeContractName(type.GetElementType()) + "[]";
 
-			switch (type.Name.ToLowerInvariant())
-			{
+      if (type.IsGenericType) {
+        if (typeof(Task<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
+          return GetTypeContractName(type.GetGenericArguments()[0]);
 
-				case "datetime":
-					return "Date";
-				case "int16":
-				case "int32":
-				case "int64":
-				case "single":
-				case "double":
-					return "number";
-				case "boolean":
-					return "boolean";
-				case "void":
-				case "string":
-					return type.Name.ToLowerInvariant();
-			}
+        if (typeof(Nullable<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
+          return GetTypeContractName(type.GetGenericArguments()[0]);
 
-			if (!_doneTypes.Contains(type))
-			{
-				_doneTypes.Add(type);
-				if (type.IsEnum)
-				{
-					EnumTypes.Push(type);
-				}
-				else
-				{
-					InterfaceTypes.Push(type);
-				}
-			}
-			return GenericSpecificName(type, true);
-		}
+        if (typeof(IEnumerable<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
+          return GetTypeContractName(type.GetGenericArguments()[0]) + "[]";
+      }
 
-		public string GenericSpecificName(Type type, bool referencing)
-		{
-			string name = (referencing ? type.FullName : type.Name).Split('`').First();
-			if (type.IsGenericType)
-			{
-				name += "_" + string.Join("_", type.GenericTypeArguments.Select(a => GenericSpecificName(a, false))) + "_";
-			}
-			return name;
-		}
-	}
+      switch (type.Name.ToLowerInvariant()) {
+        case "datetime":
+          return "Date";
+        case "int16":
+        case "int32":
+        case "int64":
+        case "single":
+        case "double":
+          return "number";
+        case "boolean":
+          return "boolean";
+        case "void":
+        case "string":
+          return type.Name.ToLowerInvariant();
+      }
+
+      if (_doneTypes.Contains(type))
+        return GenericSpecificName(type, true);
+      _doneTypes.Add(type);
+      if (type.IsEnum)
+        EnumTypes.Push(type);
+      else
+        InterfaceTypes.Push(type);
+      return GenericSpecificName(type, true);
+    }
+
+    public string GenericSpecificName(Type type, bool referencing) {
+      var name = (referencing ? type.FullName : type.Name).Split('`').First();
+      if (type.IsGenericType)
+        name += "_" + string.Join("_", type.GenericTypeArguments.Select(a => GenericSpecificName(a, false))) + "_";
+      return name;
+    }
+
+  }
+
 }

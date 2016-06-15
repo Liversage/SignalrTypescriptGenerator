@@ -1,16 +1,19 @@
 ﻿using System.Collections.Generic;
 
-namespace SignalrTypescriptGenerator.Models
-{
-	public class EnumInfo
-	{
-		public string ModuleName { get; set; }
-		public string InterfaceName { get; set; }
-		public List<TypeInfo> Properties { get; set; }
+namespace SignalrTypescriptGenerator.Models {
 
-		public EnumInfo()
-		{
-			Properties = new List<TypeInfo>();
-		}
-	}
+  public class EnumInfo {
+
+    public EnumInfo() {
+      Properties = new List<TypeInfo>();
+    }
+
+    public string ModuleName { get; set; }
+
+    public string InterfaceName { get; set; }
+
+    public List<TypeInfo> Properties { get; set; }
+
+  }
+
 }
