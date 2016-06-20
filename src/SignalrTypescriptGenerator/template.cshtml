@@ -56,9 +56,9 @@ declare module @dataContractInfo.ModuleName {
 @foreach (EnumInfo enumInfo in Model.Enums) {
 <text>
 declare module @enumInfo.ModuleName {
-	enum @enumInfo.InterfaceName {
+	const enum @enumInfo.InterfaceName {
 		@foreach (TypeInfo property in enumInfo.Properties) {
-		<text>@Raw(property.Name.ToCamelCase()) = @Raw(property.TypescriptType),</text>
+		<text>@Raw(property.Name) = @Raw(property.TypescriptType),</text>
 		}
 	}
 }
