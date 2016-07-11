@@ -1,0 +1,26 @@
+﻿@using System.Linq
+@using SignalrTypescriptGenerator.Models
+@inherits RazorEngine.Templating.TemplateBase<TypesModel>
+@foreach (var grouping in Model.TypeInfos.GroupBy(typeInfo => typeInfo.Namespace).OrderBy(grouping => grouping.Key)) {
+  if (grouping.Key.Length > 0) {
+    <text>
+declare module @grouping.Key {</text>
+  }
+
+  foreach (var typeInfo in grouping) {
+    if (typeInfo.Type == ContractType.Interface) {
+      <text></text>
+      @Include("interface", new InterfaceModel { Interface = (IInterfaceTypeInfo) typeInfo, SurroundingNamespace = grouping.Key }, typeof(InterfaceModel))
+    }
+    else if (typeInfo.Type == ContractType.Enum) {
+      <text></text>
+      @Include("enum", new EnumModel { Enum = (IEnumTypeInfo) typeInfo, SurroundingNamespace = grouping.Key }, typeof(EnumModel))
+    }
+  }
+
+  if (grouping.Key.Length > 0) {
+<text>
+}
+</text>
+  }
+}

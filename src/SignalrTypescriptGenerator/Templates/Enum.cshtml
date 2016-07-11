@@ -1,0 +1,7 @@
+﻿@using SignalrTypescriptGenerator.Models
+@inherits RazorEngine.Templating.TemplateBase<EnumModel>
+@Raw(Model.Indent ? "  " : string.Empty)const enum @Raw(Model.Enum.GetDeclaration(Model.SurroundingNamespace)) {
+@foreach (var memberInfo in Model.Enum.Members) {
+  <text>@Raw(Model.Indent ? "  " : string.Empty)@Raw(memberInfo.GetDeclaration(Model.SurroundingNamespace)),</text>
+}
+@Raw(Model.Indent ? "  " : string.Empty)}

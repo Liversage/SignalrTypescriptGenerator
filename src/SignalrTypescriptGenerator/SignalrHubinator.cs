@@ -6,7 +6,9 @@ using System.Reflection;
 using Microsoft.AspNet.SignalR;
 using Microsoft.AspNet.SignalR.Hubs;
 using SignalrTypescriptGenerator.Models;
-using TypeInfo = SignalrTypescriptGenerator.Models.TypeInfo;
+using MethodInfo = SignalrTypescriptGenerator.Models.MethodInfo;
+using ParameterInfo = SignalrTypescriptGenerator.Models.ParameterInfo;
+using PropertyInfo = SignalrTypescriptGenerator.Models.PropertyInfo;
 
 namespace SignalrTypescriptGenerator {
 
@@ -20,13 +22,9 @@ namespace SignalrTypescriptGenerator {
       assemblyRootFolder = Path.GetDirectoryName(assemblyPath);
       LoadAssemblyIntoAppDomain(assemblyPath);
 
-      TypeHelper = new TypeHelper();
-
       var defaultDependencyResolver = new DefaultDependencyResolver();
       _hubmanager = new DefaultHubManager(defaultDependencyResolver);
     }
-
-    public TypeHelper TypeHelper { get; }
 
     static Assembly LoadFromSameFolder(object sender, ResolveEventArgs args) {
       var assemblyPath = Path.Combine(assemblyRootFolder, new AssemblyName(args.Name).Name + ".dll");
@@ -37,131 +35,102 @@ namespace SignalrTypescriptGenerator {
       return assembly;
     }
 
-    void LoadAssemblyIntoAppDomain(string assemblyPath) {
+    static void LoadAssemblyIntoAppDomain(string assemblyPath) {
       var currentDomain = AppDomain.CurrentDomain;
       currentDomain.AssemblyResolve += LoadFromSameFolder;
       Assembly.LoadFile(assemblyPath);
     }
 
-    public List<TypeInfo> GetHubs() {
-
-      var typeInfos = from hub in _hubmanager.GetHubs()
-                      let name = hub.NameSpecified ? hub.Name : hub.Name.ToCamelCase()
-                      let typename = hub.HubType.FullName
-                      select new TypeInfo { Name = name, TypescriptType = typename };
-      return typeInfos.ToList();
+    public IEnumerable<ITypeInfo> GetInterfaces() {
+      var typeInfoCollector = new TypeInfoCollector();
+      typeInfoCollector.AddTypeInfo(GetSignalRInterfaceInfo(typeInfoCollector));
+      return typeInfoCollector.GetTypeInfos();
     }
 
-    public List<ServiceInfo> GetServiceContracts() {
-      var list = new List<ServiceInfo>();
-      var serviceInfo = new ServiceInfo();
-
-      foreach (var hub in _hubmanager.GetHubs()) {
-        var hubType = hub.HubType;
-
-        var moduleName = hubType.Namespace;
-        var interfaceName = hubType.Name;
-        serviceInfo.ModuleName = moduleName;
-        serviceInfo.InterfaceName = interfaceName;
-
-        var clientType = TypeHelper.ClientType(hubType);
-        var clientTypeName = clientType != null ? clientType.FullName : "any";
-        serviceInfo.ClientType = clientTypeName;
-
-        // Server type and functions
-        var serverType = hubType.Name + "Server";
-        var serverFullNamespace = hubType.FullName + "Server";
-        serviceInfo.ServerType = serverType;
-        serviceInfo.ServerTypeFullNamespace = serverFullNamespace;
-        foreach (var method in _hubmanager.GetHubMethods(hub.Name)) {
-          var ps = method.Parameters.Select(x => x.Name + ": " + TypeHelper.GetTypeContractName(x.ParameterType));
-          var functionDetails = new FunctionDetails {
-            Name = method.Name.ToCamelCase(),
-            Arguments = "(" + string.Join(", ", ps) + ")",
-            ReturnType = "JQueryPromise<" + TypeHelper.GetTypeContractName(method.ReturnType) + ">"
-          };
-
-          serviceInfo.ServerFunctions.Add(functionDetails);
-        }
-
-        list.Add(serviceInfo);
-      }
-
-      return list;
+    ITypeInfo GetSignalRInterfaceInfo(TypeInfoCollector typeInfoCollector) {
+      return new ComplexTypeInfo(
+        "SignalR",
+        string.Empty,
+        GetSignalRMembers(typeInfoCollector),
+        null
+      );
     }
 
-    public List<ClientInfo> GetClients() {
-      var list = new List<ClientInfo>();
-
-      foreach (var hub in _hubmanager.GetHubs()) {
-        var hubType = hub.HubType;
-        var clientType = TypeHelper.ClientType(hubType);
-
-        if (clientType != null) {
-          var moduleName = clientType.Namespace;
-          var interfaceName = clientType.Name;
-          var clientInfo = new ClientInfo();
-
-          clientInfo.ModuleName = moduleName;
-          clientInfo.InterfaceName = interfaceName;
-          clientInfo.FunctionDetails = TypeHelper.GetClientFunctions(hubType);
-          list.Add(clientInfo);
-        }
-      }
-
-      return list;
+    IEnumerable<PropertyInfo> GetSignalRMembers(TypeInfoCollector typeInfoCollector) {
+      var propertyInfos = _hubmanager
+        .GetHubs()
+        .Select(
+          hubDescriptor => {
+            var typeInfo = new ComplexTypeInfo(
+              hubDescriptor.HubType.Name,
+              hubDescriptor.HubType.Namespace,
+              new[] {
+                new PropertyInfo("server", GetServerTypeInfo(hubDescriptor, typeInfoCollector)),
+                new PropertyInfo("client", GetClientTypeInfo(hubDescriptor, typeInfoCollector))
+              },
+              null
+            );
+            typeInfoCollector.AddTypeInfo(typeInfo);
+            return new PropertyInfo(
+              hubDescriptor.NameSpecified ? hubDescriptor.Name : hubDescriptor.HubType.Name.ToCamelCase(),
+              typeInfo
+            );
+          }
+        )
+        .ToList();
+      return propertyInfos;
     }
 
-    public List<DataContractInfo> GetDataContracts() {
-      var list = new List<DataContractInfo>();
-
-      while (TypeHelper.InterfaceTypes.Count != 0) {
-        var type = TypeHelper.InterfaceTypes.Pop();
-        var dataContractInfo = new DataContractInfo();
-
-        var moduleName = type.Namespace;
-        var interfaceName = TypeHelper.GenericSpecificName(type, false);
-
-        dataContractInfo.ModuleName = moduleName;
-        dataContractInfo.InterfaceName = interfaceName;
-
-        foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)) {
-          var propertyName = property.Name;
-          var typeName = TypeHelper.GetTypeContractName(property.PropertyType);
-
-          dataContractInfo.Properties.Add(new TypeInfo { Name = propertyName, TypescriptType = typeName });
-        }
-
-        list.Add(dataContractInfo);
-      }
-
-      return list;
+    ITypeInfo GetServerTypeInfo(HubDescriptor hubDescriptor, TypeInfoCollector typeInfoCollector) {
+      var typeInfo = new ComplexTypeInfo(
+        hubDescriptor.HubType.Name + "Server",
+        hubDescriptor.HubType.Namespace,
+        _hubmanager
+          .GetHubMethods(hubDescriptor.Name)
+          .Select(
+            methodDescriptor => new MethodInfo(
+              methodDescriptor.Name.ToCamelCase(),
+              typeInfoCollector.GetTypeInfo(typeof(JQueryPromise<>).MakeGenericType(methodDescriptor.ReturnType)),
+              methodDescriptor.Parameters.Select(parameter => new ParameterInfo(parameter.Name, typeInfoCollector.GetTypeInfo(parameter.ParameterType))).ToList()
+            )
+          )
+          .ToList(),
+          null
+        );
+      typeInfoCollector.AddTypeInfo(typeInfo);
+      return typeInfo;
     }
 
-    public List<EnumInfo> GetEnums() {
-      var list = new List<EnumInfo>();
+    static ITypeInfo GetClientTypeInfo(HubDescriptor hubDescriptor, TypeInfoCollector typeInfoCollector) {
+      var type = GetClientType(hubDescriptor.HubType);
+      if (type == null)
+        return BuiltinTypeInfo.Any;
+      var typeInfo = new ComplexTypeInfo(type.Name, type.Namespace, GetClientMembers(type, typeInfoCollector).ToList(), null);
+      typeInfoCollector.AddTypeInfo(typeInfo);
+      return typeInfo;
+    }
 
-      while (TypeHelper.EnumTypes.Count != 0) {
-        var type = TypeHelper.EnumTypes.Pop();
-        var enuminfo = new EnumInfo();
+    static IEnumerable<IMemberInfo> GetClientMembers(IReflect type, TypeInfoCollector typeInfoCollector) {
+      return type
+        .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Where(methodInfo => !methodInfo.IsSpecialName)
+        .Select(
+          methodInfo => new PropertyInfo(
+            methodInfo.Name.ToCamelCase(),
+            new FunctionTypeInfo(
+              methodInfo.GetParameters().Select(parameter => new ParameterInfo(parameter.Name, typeInfoCollector.GetTypeInfo(parameter.ParameterType))).ToList(),
+              typeInfoCollector.GetTypeInfo(methodInfo.ReturnType)
+            )
+          )
+        );
+    }
 
-        var moduleName = type.Namespace;
-        var interfaceName = TypeHelper.GenericSpecificName(type, false);
-
-        enuminfo.ModuleName = moduleName;
-        enuminfo.InterfaceName = interfaceName;
-
-        foreach (var name in Enum.GetNames(type)) {
-          var propertyName = name;
-          string typeName = $"{Enum.Parse(type, name):D}";
-
-          enuminfo.Properties.Add(new TypeInfo { Name = propertyName, TypescriptType = typeName });
-        }
-
-        list.Add(enuminfo);
+    static Type GetClientType(Type hubType) {
+      while (hubType != null && hubType != typeof(Hub)) {
+        if (hubType.IsGenericType && hubType.GetGenericTypeDefinition() == typeof(Hub<>))
+          return hubType.GetGenericArguments().Single();
+        hubType = hubType.BaseType;
       }
-
-      return list;
+      return null;
     }
 
   }

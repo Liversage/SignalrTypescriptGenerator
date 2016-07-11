@@ -28,8 +28,8 @@ namespace SignalrTypescriptGenerator {
             errors => 1
           );
       }
-      catch (Exception e) {
-        Console.WriteLine(e);
+      catch (Exception ex) {
+        Console.WriteLine(ex);
         return 1;
       }
     }
@@ -45,15 +45,13 @@ namespace SignalrTypescriptGenerator {
       var signalrHelper = new SignalrHubinator(commandLineOptions.AssemblyPath);
 
       var model = new TypesModel {
-        Hubs = signalrHelper.GetHubs(),
-        ServiceContracts = signalrHelper.GetServiceContracts(),
-        Clients = signalrHelper.GetClients(),
-        DataContracts = signalrHelper.GetDataContracts(),
-        Enums = signalrHelper.GetEnums()
+        TypeInfos = signalrHelper.GetInterfaces()
       };
 
-      var template = ReadEmbeddedFile("template.cshtml");
-      var outputText = Engine.Razor.RunCompile(template, "templateKey", null, model);
+      Engine.Razor.AddTemplate("interface", ReadEmbeddedFile("Templates.Interface.cshtml"));
+      Engine.Razor.AddTemplate("enum", ReadEmbeddedFile("Templates.Enum.cshtml"));
+      var template = ReadEmbeddedFile("Templates.Template.cshtml");
+      var outputText = Engine.Razor.RunCompile(template, "templateKey", model.GetType(), model);
 
       if (!string.IsNullOrEmpty(commandLineOptions.OutFile)) {
         if (!FileHasChanged(commandLineOptions.OutFile, outputText))

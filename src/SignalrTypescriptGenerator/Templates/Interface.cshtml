@@ -1,0 +1,7 @@
+﻿@using SignalrTypescriptGenerator.Models
+@inherits RazorEngine.Templating.TemplateBase<InterfaceModel>
+@Raw(Model.Indent ? "  " : string.Empty)interface @Raw(Model.Interface.GetDeclaration(Model.SurroundingNamespace))@Raw(Model.Interface.BaseInterface != null ? " extends " + Model.Interface.BaseInterface.GetDeclaration(Model.SurroundingNamespace) : string.Empty) {
+@foreach (var memberInfo in Model.Interface.Members) {
+  <text>@Raw(Model.Indent ? "  " : string.Empty)@Raw(memberInfo.GetDeclaration(Model.SurroundingNamespace));</text>
+}
+@Raw(Model.Indent ? "  " : string.Empty)}
