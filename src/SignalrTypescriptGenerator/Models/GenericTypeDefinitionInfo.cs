@@ -6,7 +6,6 @@ namespace SignalrTypescriptGenerator.Models {
 
   public class GenericTypeDefinitionInfo : IInterfaceTypeInfo {
 
-
     public GenericTypeDefinitionInfo(string name, string @namespace, IEnumerable<IMemberInfo> members, IEnumerable<ITypeInfo> genericParameters, IInterfaceTypeInfo baseInterface) {
       if (name == null)
         throw new ArgumentNullException(nameof(name));
@@ -22,6 +21,8 @@ namespace SignalrTypescriptGenerator.Models {
       GenericParameters = genericParameters;
       BaseInterface = baseInterface;
     }
+
+    public bool IsTopLevel => true;
 
     public ContractType Type => ContractType.Interface;
 

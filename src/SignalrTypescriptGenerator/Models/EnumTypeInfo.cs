@@ -17,6 +17,8 @@ namespace SignalrTypescriptGenerator.Models {
       Members = members;
     }
 
+    public bool IsTopLevel => true;
+
     public ContractType Type => ContractType.Enum;
 
     public string Name { get; }

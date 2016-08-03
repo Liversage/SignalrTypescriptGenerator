@@ -90,6 +90,7 @@
     <Compile Include="Models\MethodInfo.cs" />
     <Compile Include="Models\ParameterInfo.cs" />
     <Compile Include="Models\PropertyInfo.cs" />
+    <Compile Include="Models\TypeInfoPlaceholder.cs" />
     <Compile Include="Models\TypesModel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

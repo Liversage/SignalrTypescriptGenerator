@@ -10,6 +10,8 @@ namespace SignalrTypescriptGenerator.Models {
       Name = name;
     }
 
+    public bool IsTopLevel => false;
+
     public ContractType Type => ContractType.Other;
 
     public string Name { get; }

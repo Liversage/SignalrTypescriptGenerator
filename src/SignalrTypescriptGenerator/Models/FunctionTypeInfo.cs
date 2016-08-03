@@ -14,6 +14,8 @@ namespace SignalrTypescriptGenerator.Models {
       ReturnType = returnType;
     }
 
+    public bool IsTopLevel => false;
+
     public ContractType Type => ContractType.Other;
 
     public string Name => "function";

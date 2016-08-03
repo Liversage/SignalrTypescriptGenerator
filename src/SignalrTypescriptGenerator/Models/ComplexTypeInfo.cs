@@ -57,6 +57,8 @@ namespace SignalrTypescriptGenerator.Models {
       BaseInterface = baseInterface;
     }
 
+    public bool IsTopLevel => GenericTypeDefinition == null;
+
     public ContractType Type => Name != "JQueryPromise" ? ContractType.Interface : ContractType.Other;
 
     public string Name { get; }

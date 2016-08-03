@@ -10,6 +10,8 @@ namespace SignalrTypescriptGenerator.Models {
       ElementType = elementType;
     }
 
+    public bool IsTopLevel => false;
+
     public ContractType Type => ContractType.Other;
 
     public string Name => "Array";

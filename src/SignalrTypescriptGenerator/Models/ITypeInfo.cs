@@ -2,6 +2,8 @@ namespace SignalrTypescriptGenerator.Models {
 
   public interface ITypeInfo {
 
+    bool IsTopLevel { get; }
+
     ContractType Type { get; }
 
     string Name { get; }

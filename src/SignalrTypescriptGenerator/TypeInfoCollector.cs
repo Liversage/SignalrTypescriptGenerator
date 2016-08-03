@@ -30,11 +30,13 @@ namespace SignalrTypescriptGenerator {
       if (_typeInfoCache.ContainsKey(key))
         return _typeInfoCache[key];
 
+      // Use placeholders to handle recursive types.
+      var typeInfoPlaceholder = new TypeInfoPlaceholder();
+      _typeInfoCache[key] = typeInfoPlaceholder;
       var typeInfo = GetTypeInfoCore(type);
-      _typeInfoCache[key] = typeInfo;
+      typeInfoPlaceholder.SetTypeInfo(typeInfo);
 
       return typeInfo;
-
     }
 
     public void AddTypeInfo(ITypeInfo typeInfo) {
@@ -45,16 +47,11 @@ namespace SignalrTypescriptGenerator {
     }
 
     public IEnumerable<ITypeInfo> GetTypeInfos() {
-      var interfaceTypeInfos = _typeInfoCache
+      return _typeInfoCache
         .Values
-        .OfType<ComplexTypeInfo>()
-        .Select(typeInfo => typeInfo.GenericTypeDefinition ?? typeInfo);
-      var enumTypeInfos = _typeInfoCache
-        .Values
-        .OfType<EnumTypeInfo>();
-      return interfaceTypeInfos
-        .Concat(enumTypeInfos)
+        .Where(typeInfo => typeInfo.IsTopLevel)
         .Concat(_additionalTypeInfos)
+        .Select(typeInfo => typeInfo is TypeInfoPlaceholder ? ((TypeInfoPlaceholder) typeInfo).TypeInfo : typeInfo)
         .OrderBy(typeInfo => typeInfo.FullName);
     }
 
@@ -109,7 +106,7 @@ namespace SignalrTypescriptGenerator {
       return backtickIndex >= 0 ? genericTypeName.Substring(0, backtickIndex) : genericTypeName;
     }
 
-    IEnumerable<IMemberInfo> GetMembers(Type type) {
+    IEnumerable<IMemberInfo> GetMembers(IReflect type) {
       foreach (var propertyInfo in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Where(pi => pi.CanRead))
         yield return new PropertyInfo(propertyInfo.Name.ToCamelCase(), GetTypeInfo(propertyInfo.PropertyType));
       foreach (var methodInfo in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Where(methodInfo => !methodInfo.IsSpecialName))
